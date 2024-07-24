@@ -1,0 +1,118 @@
+def gd(grad, init, n_epochs=1000, eta=10**-4, noise_strength=0):
+    params=np.array(init)
+    param_traj=np.zeros([n_epochs+1,2])
+    param_traj[0,]=init
+    v=0
+    for j in range(n_epochs):
+        noise=noise_strength*np.random.randn(params.size)
+        v = eta*(np.array(grad(params))+noise)
+        params=params-v
+        param_traj[j+1, ]=params
+    return param_traj
+
+def monkey_saddle(x,y):
+    return x**3-3*x*y**2
+
+def grad_monkey_saddle(params):
+    x=params[0]
+    y=params[1]
+    grad_x=3*x**2-3*y**2
+    grad_y=-6*x*y
+    return [grad_x, grad_y]
+
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from IPython.display import HTML
+from matplotlib.colors import LogNorm
+import numpy as np
+
+cmap = plt.get_cmap('RdYlBu_r')
+norm = LogNorm()
+
+def plot_surface(x, y,z, azim=-60, elev=40, dist=10, cmap="RdYlBu_r"):
+    fig=plt.figure()
+    ax=fig.add_subplot(111, projection='3d')
+    plot_args = {'rstride':1, 'cstride':1, 'cmap':cmap, 
+                 'linewidth':20, 'antialiased':True, 'vmin':-2, 'vmax':2}
+    ax.plot_surface(x,y,z, **plot_args)
+    ax.view_init(azim=azim, elev=elev)
+    ax.dist=dist
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    ax.set_zlim(-1,1)
+    
+    plt.xticks([-1,-0.5,0,0.5,1], ["1", "-1/2", "0", "1/2", "1"])
+    plt.yticks([-1,-0.5,0,0.5,1], ["1", "-1/2", "0", "1/2", "1"])
+    ax.set_zticks([-2,-1,0,1,2])
+    ax.set_zticklabels(["-2", "-1", "0", "1", "2"])
+    
+    ax.set_xlabel("x", fontsize=18)
+    ax.set_ylabel("y", fontsize=18)
+    ax.set_zlabel("z", fontsize=18)
+    return fig, ax;
+
+def overlay_trajectory_quiver(ax, obj_func, trajectory, color='k'):
+    xs = trajectory[:,0]
+    ys = trajectory[:,1]
+    zs=obj_func(xs,ys)
+    ax.quiver(
+        xs[:-1], ys[:-1], zs[:-1],
+        xs[1:]-xs[:-1], ys[1:]-ys[:-1], zs[1:]-zs[:-1],
+        color=color,
+        arrow_length_ratio=0.3
+    )
+    
+    return ax
+
+def overlay_trajectory(ax, obj_func, trajector, label, color='k'):
+    xs=trajector[:, 0]
+    ys=trajector[:, 1]
+    zs=obj_func(xs,ys)
+    ax.plot(xs, ys, zs, color, label=label)
+    return ax
+
+def overlay_trajectory_contour_M(ax, trajector, label, color='k', lw=2):
+    xs=trajector[:,0]
+    ys=trajector[:,1]
+    ax.plot(xs, ys, color, label=label, lw = lw)
+    ax.plot(xs[-1], ys[-1], color+'>', markersize=14)
+    
+    return ax
+
+def overlay_trajectory_contour(ax, trajector, label, color='k', lw=2):
+    xs=trajector[:,0]
+    ys=trajector[:,1]
+    ax.plot(xs, ys, color, label=label, lw = lw)
+    
+    return ax
+
+
+plt.close()
+a,b=1.0,1.0
+x,y=np.meshgrid(np.arange(-4.5, 4.5, 0.2), np.arange(-4.5, 4.5, 0.2))
+fig, ax=plt.subplots(figsize=(10,6))
+z=np.abs(monkey_saddle(x,y))
+ax.contour(x, y, z, levels=np.logspace(0.0,5,35), norm=LogNorm(), cmap="RdYlBu_r")
+ax.plot(0.0,'r*', markersize=18)
+init1=[-2,4]
+init2=[-1.7,4]
+init3=[-1.5,4]
+init4=[-3, 4.5]
+eta1=0.1
+eta2=0.5
+eta3=1
+eta4=1.01
+
+gd_1=gd(grad_monkey_saddle, init1, n_epochs=100, eta=eta1)
+gd_2=gd(grad_monkey_saddle, init2, n_epochs=100, eta=eta2)
+gd_3=gd(grad_monkey_saddle, init3, n_epochs=100, eta=eta3)
+gd_4=gd(grad_monkey_saddle, init4, n_epochs=10, eta=eta4)
+
+overlay_trajectory_contour(ax, gd_1, '$\eta=$%s'%eta1, 'g--*', lw=0.5)
+overlay_trajectory_contour(ax, gd_2, '$\eta=$%s'%eta2, 'b-<', lw=0.5)
+overlay_trajectory_contour(ax, gd_3, '$\eta=$%s'%eta3, '->', lw=0.5)
+overlay_trajectory_contour(ax, gd_4, '$\eta=$%s'%eta4, 'c-o', lw=0.5)
+plt.legend(loc=2)
+plt.show()
+fig.savefig('GD3regimes3.pdf', bbox_inches='tight')
